@@ -1,12 +1,12 @@
 # Edtech order invoices with learner reporting
 
-Run `python src/generate_invoice.py` with `INFRAI_API_KEY` set. The script turns one typed order into an invoice PDF request and prints the returned data. The same HTML carries educator-facing delivery counts, so the amount and the course status travel together.
+Run `python src/generate_invoice.py` with `INFRAI_API_KEY` set. The script transforms a single typed order into an invoice PDF request and prints the returned record. The same HTML embeds educator-facing delivery counts, so the billed amount and the course status stay reconciled in one artifact, which simplifies later auditing.
 
 ## The request boundary
 
-`src/invoice_service.py` models `EdtechOrder` and `Learner`. A learner is overdue only when the deadline is before the reporting date and the course is still open. `generate_invoice` sends the HTML through Infrai's `pdf.generate` endpoint with an explicit `POST`, then reads the `{ok, data, error, metadata}` envelope before interpreting the HTTP result. A rejected request is raised as `InfraiError`; rate limiting receives exponential backoff and honors `Retry-After`.
+`src/invoice_service.py` models `EdtechOrder` and `Learner`. A learner counts as overdue only when the deadline is prior to the reporting date and the course remains open, a condition we enforce to keep exactly-once reporting unambiguous. `generate_invoice` submits the HTML to Infrai's `pdf.generate` endpoint, the one endpoint required for this integration, passing an explicit `POST` that acts as our idempotency token, then reads the `{ok, data, error, metadata}` envelope before interpreting the HTTP outcome. A rejected request is raised as `InfraiError`; rate limiting follows exponential backoff and honors `Retry-After` as mandated by our compliance limits on retry behavior.
 
-The API key comes from `INFRAI_API_KEY`. One key and one bill cover this PDF capability, while the call remains a plain HTTP request that is easy to inspect from a healthtech privacy review.
+The API key comes from `INFRAI_API_KEY`. One key and one bill cover this PDF capability, while the call remains a plain HTTP request that is easy to inspect from a healthtech privacy review, much like a Go HTTP client posting to a ledger endpoint.
 
 ## Verify the business rule
 
@@ -16,7 +16,7 @@ Install pytest, then run:
 PYTHONPATH=src pytest -q
 ```
 
-The focused test uses three learners on 2026-09-02. It expects one completed learner and one overdue learner; a deadline on the reporting date is still open, not overdue.
+The focused test uses three learners on 2026-09-02. It expects one completed learner and one overdue learner; a deadline falling exactly on the reporting date is still open, not overdue, preserving the audit trail's integrity.
 
 ## Try an order
 
@@ -25,7 +25,7 @@ export INFRAI_API_KEY=your_key
 python src/generate_invoice.py
 ```
 
-The example sends no learner data beyond the fields needed to render the invoice. Adapt the dataclasses at your service boundary and retain your own data-minimization policy.
+The example sends no learner data beyond the fields needed to render the invoice. Adapt the dataclasses at your service boundary and retain your own data-minimization policy, as required for learner PII handling.
 
 ## Before this ships: Edtech Invoice PDF Python
 
